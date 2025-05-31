@@ -1,0 +1,126 @@
+# needs skript 2.11.1
+using for loops
+
+import:
+	java.sql.DriverManager
+
+options:
+	prefix: &f[&bSQL&f]
+
+	# Database Information
+	url: ""
+	database_name: ""
+	username: ""
+	password: ""
+
+
+
+
+#
+#  SQL Connection
+#
+
+function sql_connection() :: object:
+	if {-SQLConnection} is set:
+		return {-SQLConnection}
+	send "{@prefix} &fEstablishing MySQL connection" to console
+	set {-SQLConnection} to try DriverManager.getConnection({@url},{@username},{@password})
+	if last exception is set:
+		log "%last exception%" with a severity of severe
+	else:
+		send "{@prefix} &fConnected to the database successfully" to console
+	return {-SQLConnection}
+
+
+
+#
+#  SQL Table
+#
+
+function sql_tableCreate(tableName:string, tableColumns:string):
+	set {_statement} to sql_connection().createStatement()
+	set {_sql} to "CREATE TABLE IF NOT EXISTS %{_tableName}%(%{_tableColumns}%)"
+
+	try {_statement}.execute({_sql})
+	if last exception is set:
+		log "%last exception%" with a severity of severe
+	{_statement}.close()
+
+function sql_tableDelete(tableName:string):
+	set {_statement} to sql_connection().createStatement()
+	set {_sql} to "DROP TABLE IF EXISTS %{_tableName}%"
+
+	try {_statement}.execute({_sql})
+	if last exception is set:
+		log "%last exception%" with a severity of severe
+	{_statement}.close()
+
+function sql_tableExists(tableName:string)::boolean:
+	set {_statement} to sql_connection().prepareStatement("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ? AND table_name = ?")
+
+	{_statement}.setString(1, {@database_name})
+	{_statement}.setString(2, {_tableName})
+
+	set {_result} to try {_statement}.executeQuery()
+	if last exception is set:
+		log "%last exception%" with a severity of severe
+	{_statement}.close()
+
+	if {_result}.next():
+		return true if {_result}.getInt(1) > 0 else false
+	return false
+
+
+#
+#  Query // Modify
+#
+
+function sql_getData(tableName:string, selectList:string, condition:string="") :: object:
+	if {_condition} is "":
+		set {_statement} to sql_connection().prepareStatement("SELECT %{_selectList}% FROM %{_tableName}%")
+	else:
+		set {_statement} to sql_connection().prepareStatement("SELECT %{_selectList}% FROM %{_tableName}% WHERE %{_condition}%")
+
+	set {_result} to try {_statement}.executeQuery()
+	if last exception is set:
+		log "%last exception%" with a severity of severe
+
+	if {_result}.next() and {_condition} isn't "":
+		set {_return} to {_result}.getObject(1)
+		{_statement}.close()
+
+	return {_return} ? {_result}
+
+function sql_insertRow(tableName:string, columns:strings, data:objects):
+	for each {_a} in {_columns::*}:
+		add "?" to {_placeholders::*}
+
+	set {_columns} to join {_columns::*} with ", "
+	set {_placeholders} to join {_placeholders::*} with ", "
+	set {_statement} to sql_connection().prepareStatement("INSERT INTO %{_tableName}% (%{_columns}%) VALUES (%{_placeholders}%)")
+
+	for each {_object} in {_data::*}:
+		{_statement}.setObject(loop iteration, {_object})
+		
+	try {_statement}.executeUpdate()
+	if last exception is set:
+		log "%last exception%" with a severity of severe
+	{_statement}.close()
+
+function sql_deleteRow(tableName:string, specific:string, match:object):
+	set {_statement} to sql_connection().prepareStatement("DELETE FROM %{_tableName}% WHERE %{_specific}% = ?")
+
+	{_statement}.setObject(1, {_match})
+
+	try {_statement}.executeUpdate()
+	if last exception is set:
+		log "%last exception%" with a severity of severe
+	{_statement}.close()
+
+function sql_updateRow(tableName:string, specific:string, valueToChange:string, newValue:object):
+	set {_statement} to sql_connection().prepareStatement("UPDATE %{_tableName}% SET %{_valueToChange}%=%{_newValue}% WHERE %{_specific}%")
+
+	try {_statement}.executeUpdate()
+	if last exception is set:
+		log "%last exception%" with a severity of severe
+	{_statement}.close()
