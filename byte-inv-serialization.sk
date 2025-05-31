@@ -1,0 +1,28 @@
+import:
+    java.io.ByteArrayOutputStream
+    java.io.ByteArrayInputStream
+    org.bukkit.util.io.BukkitObjectOutputStream
+    org.bukkit.util.io.BukkitObjectInputStream
+    org.bukkit.inventory.Inventory
+    org.bukkit.inventory.ItemStack
+    org.bukkit.Bukkit
+
+function invmgr_serializeInventory(inv:inventory)::object:
+    set {_ByteOutputStream} to new ByteArrayOutputStream()
+    set {_ObjectOutputStream} to new BukkitObjectOutputStream({_ByteOutputStream})
+
+    {_ObjectOutputStream}.writeObject({_inv}.getContents())
+    {_ObjectOutputStream}.close()
+
+    return {_ByteOutputStream}.toByteArray()
+
+function invmgr_decodeInventory(byteArray:object)::inventory:
+    set {_ByteArrayInputStream} to new ByteArrayInputStream({_byteArray})
+    set {_BukkitObjectInputStream} to new BukkitObjectInputStream({_ByteArrayInputStream})
+
+    set {_items} to {_BukkitObjectInputStream}.readObject()
+
+    set {_inv} to Bukkit.createInventory(null, 45)
+    {_inv}.setContents({_items})
+
+    return {_inv}

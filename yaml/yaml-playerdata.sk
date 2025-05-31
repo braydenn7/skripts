@@ -1,0 +1,63 @@
+import:
+	java.lang.System
+
+# a = last login/logout millis
+# b = prestige, level, xp, neededxp, tag
+# c = killstreak, killstreak record, kit tier, cash drop amount
+# d = afk shards, kill tokens, bounty
+
+# e = obtained suffixes
+
+function createPlayerData(p:player)::boolean:
+	set {_uuid} to uuid of {_p}
+	loadyaml("plugins/Skript/playerdata/%{_uuid}%","`%{_uuid}%")
+	if all:
+		setYaml("a","`%{_uuid}%", System.currentTimeMillis()) = true
+		setYaml("b","`%{_uuid}%","0;0;0;100;⭐") = true
+		setYaml("c","`%{_uuid}%","0;0;1;1") = true
+		setYaml("d","`%{_uuid}%","0;0;0") = true
+	then:
+		send "&f[&bData&f] Successfully created data for %{_p}%" to console
+		return true
+	else:
+		kick {_p} due to "&cThere was an issue with creating your data. Please rejoin."
+		deleteYaml("`%{_uuid}%")
+		return false
+
+function loadPlayerData(p:player)::boolean:
+	set {_uuid} to uuid of {_p}
+	loadyaml("plugins/Skript/playerdata/%{_uuid}%","`%{_uuid}%")
+	if setYaml("a","`%{_uuid}%",System.currentTimeMillis()) = true:
+		return true
+	return false
+
+function savePlayerData(p:offline player)::boolean:
+	set {_uuid} to uuid of {_p}
+	if yaml "`%{_uuid}%" is loaded:
+		setYaml("a","`%{_uuid}%",System.currentTimeMillis()) 
+		saveYaml("`%{_uuid}%")
+		unloadYaml("`%{_uuid}%")
+		return true
+	return false
+
+on join:
+	if fileExists("plugins/Skript/playerdata/%uuid of player%.yml") = false:
+		createPlayerData(player)
+	else:
+		loop 3 times:
+			if loadPlayerData(player) = false:
+				send "[&bData&f] Failed to load data for %player%, failed attempts: %loop iteration%" to console
+			else:
+				stop
+		send "[&bData&f] Failed to load data for %player%, too many failed attempts!" to console
+		kick player due to "&cThere was an issue with loading your data. Contact support."
+
+on quit:
+	if savePlayerData(player) = false:
+		send "&c&lERROR! &cCould not save data for %player%!!!!!!!!!!" to console
+
+on unload:
+	loop all loaded yaml:
+		if loop-value contains "`":
+			send "&f[&bData&f] Force saved %loop-value%"
+			save yaml loop-value with an indentation of 2 without extra lines between nodes

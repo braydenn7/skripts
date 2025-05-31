@@ -1,0 +1,31 @@
+import:
+	java.io.ByteArrayOutputStream
+	java.io.ByteArrayInputStream
+	java.util.Base64
+	org.bukkit.util.io.BukkitObjectOutputStream
+	org.bukkit.util.io.BukkitObjectInputStream
+	org.bukkit.Bukkit
+
+function invMngr_encodeBase64(i:inventory)::string:
+	if {_i}.isEmpty() = false:
+		set {_inv} to {_i}.getContents()
+		set {_output} to new ByteArrayOutputStream()
+		set {_data} to new BukkitObjectOutputStream({_output})
+		{_data}.writeObject({_inv})
+		{_data}.close()
+		return Base64.getEncoder().encodeToString({_output}.toByteArray())
+	return "0"
+
+function invMngr_decodeBase64(b:string)::inventory:
+	set {_bytes} to Base64.getDecoder().decode({_b})
+	set {_input} to new ByteArrayInputStream({_bytes})
+	set {_object} to new BukkitObjectInputStream({_input})
+	set {_items} to {_object}.readObject()
+	{_object}.close()
+
+	set {_size} to 45
+	set {_inv} to Bukkit.createInventory(null, {_size})
+
+	{_inv}.setContents({_items})
+
+	return {_inv}

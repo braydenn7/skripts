@@ -1,0 +1,58 @@
+# base64 inv serialization skript is required
+
+import:
+	java.io.File
+
+options:
+	prefix: &f[&dInvManager&f]
+
+function invMngr_saveInventory(p:player,d:string, clearInv:boolean=true):
+	# if there is an issue with loading, their inventory will be cleared for safety. 
+	# Forcebackup created for easy refunds incase of this event. (with irp)
+	execute console command "irp forcebackup player %{_p}%"
+
+	async run 0 ticks later:
+		set {_f} to new File("plugins/Skript/InventoryManager/%{_d}%/%uuid of {_p}%.yml")
+		if {_f}.exists():
+			send "{@prefix} &eWarning: Overwrote existing backup file. Player: %{_p}%, File name: %{_d}%" to console
+		load yaml "plugins/Skript/InventoryManager/%{_d}%/%uuid of {_p}%.yml" as "evtcreS-%{_p}%"
+		set yaml value "i" of "evtcreS-%{_p}%" to invMngr_encodeBase64(inventory of {_p})
+		set yaml value "x" of "evtcreS-%{_p}%" to experience of {_p}
+
+		if {_clearInv} = true:
+			delete inventory of {_p}
+			reset experience of {_p}
+
+		save yaml "evtcreS-%{_p}%" without extra lines between nodes
+		unload yaml "evtcreS-%{_p}%"
+
+function invMngr_loadInventory(p:player,d:string):
+	async run 0 ticks later:
+		set {_f} to new File("plugins/Skript/InventoryManager/%{_d}%/%uuid of {_p}%.yml")
+		if {_f}.exists() = false:
+			send "{@prefix} &eWarning: No backup file found. Player: %{_p}%, File name: %{_d}%" to console
+		load yaml "plugins/Skript/InventoryManager/%{_d}%/%uuid of {_p}%.yml" as "evtcreL-%{_p}%"
+		set {_base64} to yaml value "i" of "evtcreL-%{_p}%"
+		set {_xp} to yaml value "x" of "evtcreL-%{_p}%"
+
+		if {_base64} is set:
+			if {_base64} != 0:
+				set {_inv} to invMngr_decodeBase64({_base64}).getContents()
+				{_p}.getInventory().setContents({_inv})
+
+				send "{@prefix} &aLoaded inventory for &2%{_p}%&a from &2%{_d}%. Empty: No" to console
+			else:
+				clear inventory of {_p}
+				send "{@prefix} &aLoaded inventory for &2%{_p}%&a from &2%{_d}%. Empty: Yes" to console
+		else:
+			send "{@prefix} &4Error: No Base64 string found. Player: %{_p}%, File name: %{_d}%" to console
+			clear inventory of {_p}
+			send "%nl%%nl%{@prefix} &cThere was an issue with loading your inventory! Please contact support ASAP!%nl%%nl%" to {_p}
+		
+		if {_xp} is set:
+			set experience of {_p} to yaml value "x" of "evtcreL-%{_p}%"
+		else:
+			send "{@prefix} &4Error: No xp value found. Player: %{_p}%, File name: %{_d}%" to console
+
+		delete yaml "evtcreL-%{_p}%"
+		unload yaml "evtcreL-%{_p}%"

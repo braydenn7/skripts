@@ -1,0 +1,43 @@
+import:
+    java.nio.file.Paths
+    java.io.File
+
+function queryYaml(v:string,y:string)::object:
+    if yaml {_y} is loaded:
+        return yaml value {_v} from {_y}
+    return {_null}
+
+function setYaml(v:string,y:string,o:object)::boolean:
+    if yaml {_y} is loaded:
+        set yaml value {_v} from {_y} to {_o}
+        return true
+    return false
+
+function fileExists(path:string)::boolean:
+    if (Paths.get({_path}).toFile()).exists():
+        return true
+    return false
+
+function loadyaml(d:string,n:string)::boolean:
+    if yaml {_n} is not loaded:
+        load yaml "%{_d}%.yml" as {_n}
+        return true
+    return false
+
+function saveYaml(n:string)::boolean:
+    if yaml {_n} is loaded:
+        save yaml {_n} with an indentation of 2 without extra lines between nodes
+        return true
+    return false
+
+function unloadYaml(n:string)::boolean:
+    if yaml {_n} is loaded:
+        unload yaml {_n}
+        return true
+    return false
+
+function deleteYaml(n:string)::boolean:
+    if yaml {_n} is loaded:
+        delete yaml {_n}
+        return true
+    return false

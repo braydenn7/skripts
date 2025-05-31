@@ -1,0 +1,109 @@
+import:
+    java.lang.System
+    java.lang.Thread
+    org.bukkit.event.entity.EntityDamageByEntityEvent
+    org.bukkit.event.entity.PlayerDeathEvent
+    org.bukkit.entity.Player
+    org.bukkit.entity.Explosive
+    org.bukkit.entity.TNTPrimed
+    org.bukkit.entity.EnderCrystal
+
+options:
+
+    # number is in seconds
+    combat-timer: 15
+
+function getWhenTagged(u:objects)::integer:
+    return {_u::1}
+
+function getWhoInCombat(p:objects)::string:
+    return "%player({_p::2})%"
+
+every 2 ticks:
+
+    # async
+    async run 0 ticks later:
+        loop indexes of {-inCombat::*}:
+            set {_p} to player(loop-value)
+            set {_u::*} to {-inCombat::%loop-value%::*}
+
+            set {_timeSince} to (System.currentTimeMillis() - getWhenTagged({_u::*}))/1000
+            if ({_p} is sprinting):
+                send action bar "&cYou're in combat with %getWhoInCombat({_u::*})%: &4Frozen while sprinting!" to {_p}
+                add 100 to {-inCombat::%loop-value%::1}
+            else if ({_timeSince} <= 15):
+                send action bar "&cYou're in combat with %getWhoInCombat({_u::*})%: %{@combat-timer} - {_timeSince}%s" to {_p}
+            else:
+                if any:
+                    region at {_p} contains "spawn"
+                    {_timeSince} >= 15
+                then:
+                    delete {-inCombat::%loop-value%::*}
+                    send action bar "&aYou're no longer in combat." to {_p}
+                    send " &2⚔ &aYou're no longer in combat and can logout safely." to {_p}
+
+function combattag(p: player, w: string):
+    if {-inCombat::%uuid of {_p}%::*} is not set:
+        send " &4⚔ &cYou are now in combat! Do not logout!" to {_p}
+    set {-inCombat::%uuid of {_p}%::*} to System.currentTimeMillis() and {_w}
+
+on EntityDamageByEntityEvent:
+    set {_victim} to event.getEntity()
+    set {_damager} to event.getDamager()
+    if {_victim} is instance of EnderCrystal:
+        if {_damager} is instance of Player:
+            set metadata tag "cbt-att" of (event.getEntity()) to {_damager}
+
+    else if {_damager} is instance of Player:
+        set {_attacker} to {_damager}
+    
+    else if {_damager} is instance of Projectile:
+        if {_damager}.getShooter() is instance of Player:
+            set {_attacker} to {_damager}.getShooter()
+
+    else if {_damager} is instance of Explosive:
+        if {_damager} is instance of TNTPrimed:
+            if {_damager}.getSource() is instance of Player:
+                set {_attacker} to {_damager}.getSource()
+
+    else if {_damager} is instance of EnderCrystal:
+        set {_m} to metadata tag "cbt-att" of {_damager}
+        if {_m} is instance of Player:
+            set {_attacker} to {_m}
+
+    if all:
+        {_victim} is instance of Player
+        {_attacker} is instance of Player
+    then:
+        combattag({_victim},uuid of {_attacker})
+        combattag({_attacker},uuid of {_victim})
+
+on PlayerDeathEvent:
+    set {_victim} to event.getEntity()
+    set {_killer} to {_victim}.getKiller()
+    if {_killer} is a player:
+        delete {-inCombat::%uuid of {_killer}%::*}
+        send " &2⚔ &aYou're no longer in combat and can logout safely." to {_killer}
+        send action bar "" to {_killer}
+    delete {-inCombat::%uuid of {_victim}%::*}
+    send action bar "" to {_victim} 
+
+on leave:
+    if {-inCombat::%uuid of player%::*} is set:
+        console command "/minecraft:kill %player%"
+        broadcast " &4⚔ &c%player% died attempting to combat log!"
+        delete {-inCombat::%uuid of player%::*}
+
+on command:
+    if {-inCombat::%player's uuid%::*} is set:
+        if player does not have permission "combattag.command.bypass":
+            cancel event
+            send " &4⚔ &cYou can not run commands in combat!"
+            
+on load:
+    async run 0 ticks later:
+        send " &2⚔ &aLoaded combat tag Skript, credit braydenn ;)" to all players where [input is op]
+
+on unload:
+    delete {-inCombat::*}
+    broadcast " &2⚔ &aYou have been taken out of combat!" 
